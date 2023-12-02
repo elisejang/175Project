@@ -42,9 +42,9 @@ class StockTradingEnvironment(gym.Env):
     def step(self, action):
         # Execute the action and move to the next time step
         self.current_step += 1
-
+        print("action:",action )
         # Calculate reward, done, and info based on your custom logic
-        reward = self._calculate_reward()
+        reward = self._calculate_reward(action)
         done = self.current_step == self.max_steps
         info = {}
 
@@ -52,6 +52,7 @@ class StockTradingEnvironment(gym.Env):
         obs = self._next_observation()
 
         return obs, reward, done, info
+
 
     def _next_observation(self):
         # Extract date and prices for the current time step for each ticker
@@ -62,7 +63,22 @@ class StockTradingEnvironment(gym.Env):
         return obs
 
 
-    def _calculate_reward(self):
+    def _calculate_reward(self, action):
+        # Assuming action is a list of integers representing buy, sell, or hold for each ticker
+        # You need to implement logic to update the portfolio based on the actions
+        # For simplicity, let's assume a basic strategy where you buy one share of each stock if action is 0 (buy)
+        # and sell if action is 1 (sell), and hold if action is 2 (hold)
+
+        # Prices for the current time step
+        prices = self.df.iloc[self.current_step, 1:].values.astype(np.float32)
+
+        # Calculate the portfolio value based on the actions
+        for i in range(len(self.tickers)):
+            if action[i] == 0:  # Buy
+                self.portfolio_value += prices[i]
+            elif action[i] == 1:  # Sell
+                self.portfolio_value -= prices[i]
+
         # Calculate the daily returns
         daily_return = (self.portfolio_value - self.prev_portfolio_value) / self.prev_portfolio_value if self.prev_portfolio_value != 0 else 0
 
@@ -71,11 +87,17 @@ class StockTradingEnvironment(gym.Env):
 
         # Calculate the Sharpe ratio using the daily returns
         sharpe_ratio = self._calculate_sharpe_ratio(self.returns)
+
+        # Update previous portfolio value for the next time step
+        self.prev_portfolio_value = self.portfolio_value
+
         print("Portfolio Value:", self.portfolio_value)
         print("Previous Portfolio Value:", self.prev_portfolio_value)
         print("Daily Return:", daily_return)
         print("Sharpe Ratio:", sharpe_ratio)
+
         return sharpe_ratio
+
 
     def _calculate_sharpe_ratio(self, returns):
         average_return = np.mean(returns)
