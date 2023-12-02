@@ -64,9 +64,8 @@ class StockTradingEnvironment(gym.Env):
 
 
     def _calculate_reward(self, action):
-        # Assuming action is a list of integers representing buy, sell, or hold for each ticker
-        # You need to implement logic to update the portfolio based on the actions
-        # For simplicity, let's assume a basic strategy where you buy one share of each stock if action is 0 (buy)
+        # action is a list of integers representing buy, sell, or hold for each ticker
+        # basic strategy where you buy one share of each stock if action is 0 (buy)
         # and sell if action is 1 (sell), and hold if action is 2 (hold)
 
         # Prices for the current time step
