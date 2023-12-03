@@ -87,7 +87,7 @@ class StockTradingEnvironment(gym.Env):
         # Update the list of daily returns
         self.returns.append(daily_return)
 
-        # # Calculate the Sharpe ratio using the daily returns
+        # # Calculate the Sharpe ratio using the daily returns hihihi
         # sharpe_ratio = self._calculate_sharpe_ratio(self.returns)
 
         # Update previous portfolio value for the next time step
