@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 from stable_baselines3 import PPO
 from datetime import datetime
+import matplotlib.pyplot as plt
 
 #from utils import build_data_set
 class StockTradingEnvironment(gym.Env):
@@ -57,6 +58,7 @@ class StockTradingEnvironment(gym.Env):
     def _next_observation(self):
         # Extract date and prices for the current time step for each ticker
         date = datetime.strptime(self.df.iloc[self.current_step, 0], "%Y-%m-%d")
+        print(date)
         days_since_start = (date - datetime.strptime(self.df.iloc[0, 0], "%Y-%m-%d")).days
         prices = self.df.iloc[self.current_step, 1:].values.astype(np.float32)
         obs = np.concatenate(([days_since_start], prices))
@@ -124,7 +126,16 @@ def predict_stocks():
     for every ticker where the rows are the prices on that date
     '''
     df = pd.read_csv("stock_prices.csv")
-    df.dropna(axis=0, how="any", inplace=True)
+
+
+    #any data missing, replace with either existing previous data, or future data
+    df.ffill(inplace=True)
+    df.bfill(inplace=True)
+
+
+    
+
+
     # Create and initialize the trading environment
     env = StockTradingEnvironment(df)
 
@@ -138,13 +149,36 @@ def predict_stocks():
     # Load the trained model
     loaded_model = PPO.load("ppo_stock_trading_model")
     obs = env.reset()
+    # Lists to store results for plotting
+    years = []
+    portfolio_values = []
+
     for _ in range(env.max_steps):
         action, _ = loaded_model.predict(obs)
         obs, _, _, _ = env.step(action)
 
+        # Extract year from the date and store results
+        year = int(env.df.iloc[env.current_step, 0][:4])
+        portfolio_value = env.portfolio_value
+
+        years.append(year)
+        portfolio_values.append(portfolio_value)
+
+    # Plotting the results
+    plt.figure(figsize=(10, 6))
+    plt.plot(years, portfolio_values, label='Portfolio Value')
+    plt.xlabel('Year')
+    plt.ylabel('Portfolio Value')
+    plt.title('Portfolio Value Over Time')
+    plt.legend()
+    plt.show()
+
     # Get the final portfolio value
     final_portfolio_value = env.portfolio_value
+    print("Final Portfolio Value:", final_portfolio_value)
 
+    # Get the final portfolio value
+    final_portfolio_value = env.portfolio_value
     print("Final Portfolio Value:", final_portfolio_value)
     # Use the trained model for prediction
 
