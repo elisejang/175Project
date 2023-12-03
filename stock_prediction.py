@@ -7,6 +7,7 @@ import numpy as np
 from stable_baselines3 import PPO
 from datetime import datetime
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 
 #from utils import build_data_set
 class StockTradingEnvironment(gym.Env):
@@ -86,8 +87,8 @@ class StockTradingEnvironment(gym.Env):
         # Update the list of daily returns
         self.returns.append(daily_return)
 
-        # Calculate the Sharpe ratio using the daily returns
-        sharpe_ratio = self._calculate_sharpe_ratio(self.returns)
+        # # Calculate the Sharpe ratio using the daily returns
+        # sharpe_ratio = self._calculate_sharpe_ratio(self.returns)
 
         # Update previous portfolio value for the next time step
         self.prev_portfolio_value = self.portfolio_value
@@ -95,18 +96,18 @@ class StockTradingEnvironment(gym.Env):
         print("Portfolio Value:", self.portfolio_value)
         print("Previous Portfolio Value:", self.prev_portfolio_value)
         print("Daily Return:", daily_return)
-        print("Sharpe Ratio:", sharpe_ratio)
+        # print("Sharpe Ratio:", sharpe_ratio)
 
-        return sharpe_ratio
+        return daily_return
 
 
-    def _calculate_sharpe_ratio(self, returns):
-        average_return = np.mean(returns)
-        risk = np.std(returns)
+    # def _calculate_sharpe_ratio(self, returns):
+    #     average_return = np.mean(returns)
+    #     risk = np.std(returns)
 
-        epsilon = 1e-8  # Small epsilon value to avoid division by zero
+    #     epsilon = 1e-8  # Small epsilon value to avoid division by zero
 
-        return average_return / max(risk, epsilon)
+    #     return average_return / max(risk, epsilon)
 
 
 def predict_stocks_ppo(model, env):
@@ -127,12 +128,10 @@ def predict_stocks():
     '''
     df = pd.read_csv("stock_prices.csv")
 
-
     #any data missing, replace with either existing previous data, or future data
+    #however this leads to inacurracies but whatever
     df.ffill(inplace=True)
     df.bfill(inplace=True)
-
-
 
 
 
@@ -153,6 +152,8 @@ def predict_stocks():
     dates = []
     portfolio_values = []
 
+
+    #simulate trained model on environment
     for _ in range(env.max_steps):
         action, _ = loaded_model.predict(obs)
         obs, _, _, _ = env.step(action)
@@ -171,6 +172,10 @@ def predict_stocks():
     plt.xlabel('Date')
     plt.ylabel('Portfolio Value')
     plt.title('Portfolio Value Over Time')
+    # Format y-axis as integers
+    ax = plt.gca()
+    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+
     plt.legend()
     plt.show()
 
@@ -179,9 +184,6 @@ def predict_stocks():
     final_portfolio_value = env.portfolio_value
     print("Final Portfolio Value:", final_portfolio_value)
 
-    # Get the final portfolio value
-    final_portfolio_value = env.portfolio_value
-    print("Final Portfolio Value:", final_portfolio_value)
     # Use the trained model for prediction
 
 # The percentage by which a stock has to beat the S&P500 to be considered a 'buy'
