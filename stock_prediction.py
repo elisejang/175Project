@@ -21,8 +21,8 @@ class StockTradingEnvironment(gym.Env):
         # Action space: Buy, Sell, Hold for each ticker
         self.action_space = spaces.MultiDiscrete([3] * len(self.tickers))
 
-        # Observation space: Concatenation of date, stock prices for each ticker
-        num_features = 1 + len(self.tickers)
+        # Calculate observation space size based on the number of features
+        num_features = 1 + len(self.tickers) + 5  # 1 for days_since_start, len(self.tickers) for stock prices, 4 for additional features
         self.observation_space = spaces.Box(low=0, high=np.inf, shape=(num_features,), dtype=np.float32)
 
         # Initial state
@@ -55,14 +55,50 @@ class StockTradingEnvironment(gym.Env):
 
         return obs, reward, done, info
 
-
+    
     def _next_observation(self):
         # Extract date and prices for the current time step for each ticker
         date = datetime.strptime(self.df.iloc[self.current_step, 0], "%Y-%m-%d")
         print(date)
         days_since_start = (date - datetime.strptime(self.df.iloc[0, 0], "%Y-%m-%d")).days
         prices = self.df.iloc[self.current_step, 1:].values.astype(np.float32)
-        obs = np.concatenate(([days_since_start], prices))
+
+        # Feature engineering: Calculate moving averages, RSI, and MACD
+        # Moving Averages
+        short_window = 5
+        long_window = 20
+        short_ma = self.df.iloc[max(0, self.current_step - short_window + 1):self.current_step + 1, 1:].mean().mean()
+        long_ma = self.df.iloc[max(0, self.current_step - long_window + 1):self.current_step + 1, 1:].mean().mean()
+
+
+        # Relative Strength Index (RSI)
+        changes = np.diff(prices)
+        gains = np.where(changes > 0, changes, 0)
+        losses = np.where(changes < 0, -changes, 0)
+
+        avg_gain = np.mean(gains[-short_window:])
+        avg_loss = np.mean(losses[-short_window:])
+
+        rs = avg_gain / (avg_loss + 1e-9)
+        rsi = 100 - (100 / (1 + rs))
+
+        # Moving Average Convergence Divergence (MACD)
+        short_ema = prices[-short_window:].mean()
+        long_ema = prices[-long_window:].mean()
+        macd = short_ema - long_ema
+        
+
+
+        # Calculate historical volatility
+        returns = np.diff(prices) / prices[:-1]
+        volatility = np.std(returns) * np.sqrt(252)  # Assuming 252 trading days in a year
+        print("Short Ema:", short_ema)
+        print("Long Ema:", long_ema)
+        print("RSI:", rsi)
+        print("MACD:", macd)
+        print("volatility:", volatility)
+        
+        obs = np.concatenate(([days_since_start], prices, [short_ma, long_ma, rsi, macd, volatility]))
         return obs
 
 
@@ -81,6 +117,10 @@ class StockTradingEnvironment(gym.Env):
             elif action[i] == 1:  # Sell
                 self.portfolio_value -= prices[i]
 
+         # Apply penalty for negative portfolio value
+        penalty = 0
+        if self.portfolio_value < 0:
+            penalty = -2 
         # Calculate the daily returns
         daily_return = (self.portfolio_value - self.prev_portfolio_value) / self.prev_portfolio_value if self.prev_portfolio_value != 0 else 0
 
@@ -98,8 +138,7 @@ class StockTradingEnvironment(gym.Env):
         print("Daily Return:", daily_return)
         # print("Sharpe Ratio:", sharpe_ratio)
 
-        return daily_return
-
+        return daily_return + penalty
 
     # def _calculate_sharpe_ratio(self, returns):
     #     average_return = np.mean(returns)
@@ -142,14 +181,14 @@ def predict_stocks():
     # Create and initialize the trading environment
     env = StockTradingEnvironment(df)
     
-    '''
+    
     # Train the PPO model
     model = PPO("MlpPolicy", env, verbose=1)
     model.learn(total_timesteps=10000)
 
     # Save the trained model
     model.save("ppo_stock_trading_model")
-    '''
+    
     # Create and initialize the training environment
     test_env = StockTradingEnvironment(tf)
 
@@ -162,6 +201,8 @@ def predict_stocks():
 
 
     #simulate trained model on environment
+    # Use the trained model for prediction
+
     for _ in range(test_env.max_steps):
         action, _ = loaded_model.predict(obs)
         obs, _, _, _ = test_env.step(action)
@@ -192,7 +233,6 @@ def predict_stocks():
     final_portfolio_value = env.portfolio_value
     print("Final Portfolio Value:", final_portfolio_value)
 
-    # Use the trained model for prediction
 
 # The percentage by which a stock has to beat the S&P500 to be considered a 'buy'
 OUTPERFORMANCE = 10
