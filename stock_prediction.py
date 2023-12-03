@@ -143,7 +143,8 @@ def predict_stocks():
         obs, _, _, _ = env.step(action)
 
     # Get the final portfolio value
-    final_portfolio_value = env.get_attr("portfolio_value")[0]
+    final_portfolio_value = env.portfolio_value
+
     print("Final Portfolio Value:", final_portfolio_value)
     # Use the trained model for prediction
 
@@ -175,7 +176,7 @@ OUTPERFORMANCE = 10
 
 
     
-
+# def predict_stocks():
 #     X_train, y_train = build_data_set()
 #     # Remove the random_state parameter to generate actual predictions
 #     clf = RandomForestClassifier(n_estimators=100, random_state=0)

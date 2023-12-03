@@ -5,8 +5,8 @@ import fix_yahoo_finance as yf
 
 yf.pdr_override()
 
-START_DATE = "2003-08-01"
-END_DATE = "2015-01-01"
+START_DATE = "2015-01-01"
+END_DATE = "2023-01-01"
 
 
 def build_stock_dataset(start=START_DATE, end=END_DATE):
@@ -15,9 +15,9 @@ def build_stock_dataset(start=START_DATE, end=END_DATE):
     :returns: stock_prices.csv
     """
 
-    statspath = "intraQuarter/_KeyStats/"
-    ticker_list = os.listdir(statspath)
-
+    with open("tickers.txt") as my_file:
+        ticker_list = my_file.readline().split(",")
+        print(ticker_list)
     # Required on macOS
     if ".DS_Store" in ticker_list:
         os.remove(f"{statspath}/.DS_Store")
@@ -36,7 +36,7 @@ def build_stock_dataset(start=START_DATE, end=END_DATE):
     print(f"{len(missing_tickers)} tickers are missing: \n {missing_tickers} ")
     # If there are only some missing datapoints, forward fill.
     stock_data.ffill(inplace=True)
-    stock_data.to_csv("stock_prices.csv")
+    stock_data.to_csv("stock_prices2.csv")
 
 
 def build_sp500_dataset(start=START_DATE, end=END_DATE):
@@ -76,7 +76,7 @@ def build_dataset_iteratively(
             continue
         adj_close = stock_ohlc["Adj Close"].rename(ticker)
         df = pd.concat([df, adj_close], axis=1)
-    df.to_csv("stock_prices.csv")
+    df.to_csv("stock_prices2.csv")
 
 
 if __name__ == "__main__":
