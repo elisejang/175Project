@@ -126,42 +126,50 @@ def predict_stocks():
     instead it has a date column, and then a column 
     for every ticker where the rows are the prices on that date
     '''
-    df = pd.read_csv("stock_prices.csv")
+    df = pd.read_csv("stock_train.csv")
+    tf = pd.read_csv("stock_test.csv")
 
     #any data missing, replace with either existing previous data, or future data
     #however this leads to inacurracies but whatever
     df.ffill(inplace=True)
     df.bfill(inplace=True)
 
+    tf.ffill(inplace=True)
+    tf.bfill(inplace=True)
+
 
 
     # Create and initialize the trading environment
     env = StockTradingEnvironment(df)
-
+    
+    '''
     # Train the PPO model
     model = PPO("MlpPolicy", env, verbose=1)
     model.learn(total_timesteps=10000)
 
     # Save the trained model
     model.save("ppo_stock_trading_model")
+    '''
+    # Create and initialize the training environment
+    test_env = StockTradingEnvironment(tf)
 
     # Load the trained model
     loaded_model = PPO.load("ppo_stock_trading_model")
-    obs = env.reset()
+    obs = test_env.reset()
     # Lists to store results for plotting
     dates = []
     portfolio_values = []
 
 
     #simulate trained model on environment
-    for _ in range(env.max_steps):
+    for _ in range(test_env.max_steps):
         action, _ = loaded_model.predict(obs)
-        obs, _, _, _ = env.step(action)
+        obs, _, _, _ = test_env.step(action)
 
         # Extract date and store results
-        date_str = env.df.iloc[env.current_step, 0]
+        date_str = test_env.df.iloc[test_env.current_step, 0]
         date = datetime.strptime(date_str, "%Y-%m-%d")
-        portfolio_value = env.portfolio_value
+        portfolio_value = test_env.portfolio_value
 
         dates.append(date)
         portfolio_values.append(portfolio_value)
