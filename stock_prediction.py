@@ -133,7 +133,7 @@ def predict_stocks():
     df.bfill(inplace=True)
 
 
-    
+
 
 
     # Create and initialize the trading environment
@@ -150,28 +150,30 @@ def predict_stocks():
     loaded_model = PPO.load("ppo_stock_trading_model")
     obs = env.reset()
     # Lists to store results for plotting
-    years = []
+    dates = []
     portfolio_values = []
 
     for _ in range(env.max_steps):
         action, _ = loaded_model.predict(obs)
         obs, _, _, _ = env.step(action)
 
-        # Extract year from the date and store results
-        year = int(env.df.iloc[env.current_step, 0][:4])
+        # Extract date and store results
+        date_str = env.df.iloc[env.current_step, 0]
+        date = datetime.strptime(date_str, "%Y-%m-%d")
         portfolio_value = env.portfolio_value
 
-        years.append(year)
+        dates.append(date)
         portfolio_values.append(portfolio_value)
 
     # Plotting the results
     plt.figure(figsize=(10, 6))
-    plt.plot(years, portfolio_values, label='Portfolio Value')
-    plt.xlabel('Year')
+    plt.plot(dates, portfolio_values, label='Portfolio Value')
+    plt.xlabel('Date')
     plt.ylabel('Portfolio Value')
     plt.title('Portfolio Value Over Time')
     plt.legend()
     plt.show()
+
 
     # Get the final portfolio value
     final_portfolio_value = env.portfolio_value
