@@ -216,7 +216,6 @@ class StockTradingEnvironment(gym.Env):
         self.prev_portfolio_value = self.portfolio_value
 
         print("Portfolio Value:", self.portfolio_value)
-        print("Previous Portfolio Value:", self.prev_portfolio_value)
         print("Daily Return:", daily_return)
         # print("Sharpe Ratio:", sharpe_ratio)
 
