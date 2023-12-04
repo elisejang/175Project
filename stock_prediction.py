@@ -16,7 +16,7 @@ class StockTradingEnvironment(gym.Env):
 
         # Data
         self.df = df
-        self.tickers = df.columns[1:]  # Assuming the first column is the date column
+        self.tickers = df.columns[1:]  #The first column is the date column
         # Action space: Buy, Sell, Hold for each ticker
         self.action_space = spaces.MultiDiscrete([3] * len(self.tickers))
 
@@ -36,6 +36,8 @@ class StockTradingEnvironment(gym.Env):
         #keeps track of historical ticker prices
         self.historical_prices = []
 
+        #smooth rsi, keeps track of values
+        self.rsi_values=[]
         #for printing at the end
         self.record_features=[]
 
@@ -85,7 +87,7 @@ class StockTradingEnvironment(gym.Env):
 
 
     def calculate_macd(self, prices, short_window=10, long_window=20, signal_window=6):
-        # Convert prices to a DataFrame
+        # Convert prices to a DataFrame so can use ewm
         df_prices = pd.DataFrame(prices)
 
         # Calculate short-term EMA
@@ -102,6 +104,13 @@ class StockTradingEnvironment(gym.Env):
 
         return macd_line.values, signal_line.values
 
+
+    #helper function to append rsi to historical rsi values
+    def _add_to_historical_rsi(self, rsi ):
+        if len(self.rsi_values)==14:
+            self.rsi_values.pop(0)
+        self.rsi_values.append(rsi)
+
     def _next_observation(self):
         # Extract date and prices for the current time step for each ticker
         date = datetime.strptime(self.df.iloc[self.current_step, 0], "%Y-%m-%d")
@@ -112,22 +121,29 @@ class StockTradingEnvironment(gym.Env):
         # Feature engineering: Calculate moving averages, RSI, and MACD
         # Moving Averages
         short_window = 5
+        med_window=14
         long_window = 20
         short_ma = self._mean_of_historical_prices(self.historical_prices, window=short_window).mean()
         long_ma = self._mean_of_historical_prices(self.historical_prices, window=long_window).mean()
 
         # Relative Strength Index (RSI)
-        changes = np.diff(self.historical_prices)
-        print(changes)
-        gains = np.where(changes > 0, changes, 0)
-        losses = np.where(changes < 0, -changes, 0)
+        rsi=29.7
+        #2 is minimum length for np.diff to work.
+        if len(self.historical_prices) >=med_window:
+            changes = np.diff(self.historical_prices, axis=0)
+        
+            gains = np.where(changes > 0, changes, 0)
+            losses = np.where(changes < 0, -changes, 0)
+            avg_gain = np.mean(gains[-med_window:])
+            avg_loss = np.mean(losses[-med_window:])
 
-        avg_gain = np.mean(gains[-short_window:])
-        avg_loss = np.mean(losses[-short_window:])
-
-        rs = avg_gain / (avg_loss + 1e-9)
-        rsi = 100 - (100 / (1 + rs))
-
+            
+            rs = avg_gain / (avg_loss + 1e-9)
+            rsi = 100 - (100 / (1 + rs))
+        self._add_to_historical_rsi(rsi)
+        
+        # #smooth rsi as its too noisy
+        # rsi = np.mean(self.rsi_values[-med_window:])
         # Moving Average Convergence Divergence (MACD)
         macd_line, signal_line = self.calculate_macd(self.historical_prices)
 
@@ -188,12 +204,12 @@ class StockTradingEnvironment(gym.Env):
         self.returns.append(daily_return)
 
         # Calculate the trend over a specified period (e.g., one month)
-        trend_window = 20  # Adjust this window size based on preference
+        trend_window = 20 
         recent_returns = self.returns[-trend_window:]
 
         # Penalize if the overall trend is downwards
         if np.mean(recent_returns) < 0:
-            penalty += -1  # Adjust the penalty based on preference
+            penalty += -1 
 
 
         # Update previous portfolio value for the next time step
@@ -214,14 +230,6 @@ class StockTradingEnvironment(gym.Env):
 
     #     return average_return / max(risk, epsilon)
 
-
-def predict_stocks_ppo(model, env):
-        obs = env.reset()
-        done = False
-        while not done:
-            action, _ = model.predict(obs)
-            obs, _, done, _ = env.step(action)
-        return env.portfolio_value
 
 def predict_stocks():
     # Load historical stock data
@@ -247,13 +255,13 @@ def predict_stocks():
     # Create and initialize the trading environment
     env = StockTradingEnvironment(df)
     
-    
+    #Comment code to run trained model
     # Train the PPO model
-    model = PPO("MlpPolicy", env, verbose=1)
-    model.learn(total_timesteps=10000)
+    # model = PPO("MlpPolicy", env, verbose=1)
+    # model.learn(total_timesteps=10000)
 
-    # Save the trained model
-    model.save("ppo_stock_trading_model")
+    # # Save the trained model
+    # model.save("ppo_stock_trading_model")
     
     # Create and initialize the training environment
     test_env = StockTradingEnvironment(tf)
