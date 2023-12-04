@@ -8,7 +8,6 @@ from stable_baselines3 import PPO
 from datetime import datetime
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
-import math
 
 #from utils import build_data_set
 class StockTradingEnvironment(gym.Env):
@@ -18,12 +17,11 @@ class StockTradingEnvironment(gym.Env):
         # Data
         self.df = df
         self.tickers = df.columns[1:]  # Assuming the first column is the date column
-
         # Action space: Buy, Sell, Hold for each ticker
         self.action_space = spaces.MultiDiscrete([3] * len(self.tickers))
 
         # Calculate observation space size based on the number of features
-        num_features = 1 + len(self.tickers) + 7  # 1 for days_since_start, len(self.tickers) for stock prices, 4 for additional features
+        num_features = 1 + len(self.tickers) + 7  # 1 for days_since_start, len(self.tickers) for stock prices, 7 for additional features
         self.observation_space = spaces.Box(low=0, high=np.inf, shape=(num_features,), dtype=np.float32)
 
         # Initial state
@@ -37,6 +35,10 @@ class StockTradingEnvironment(gym.Env):
         
         #keeps track of historical ticker prices
         self.historical_prices = []
+
+        #for printing at the end
+        self.record_features=[]
+
     def reset(self):
         self.current_step = 0
         self.portfolio_value = 0
@@ -99,7 +101,7 @@ class StockTradingEnvironment(gym.Env):
         signal_line = macd_line.ewm(span=signal_window, adjust=False).mean()
 
         return macd_line.values, signal_line.values
-    
+
     def _next_observation(self):
         # Extract date and prices for the current time step for each ticker
         date = datetime.strptime(self.df.iloc[self.current_step, 0], "%Y-%m-%d")
@@ -145,7 +147,7 @@ class StockTradingEnvironment(gym.Env):
         # Bollinger Bands
         upper_band, lower_band = self._calculate_bollinger_bands(self.historical_prices, window=20, num_std=2)
 
-
+        self.record_features=[short_ma, long_ma, rsi, macd, volatility,upper_band, lower_band ]
         print("Short ma:", short_ma)
         print("Long ma:", long_ma)
         print("RSI:", rsi)
@@ -262,38 +264,93 @@ def predict_stocks():
     # Lists to store results for plotting
     dates = []
     portfolio_values = []
-
-
-    #simulate trained model on environment
-    # Use the trained model for prediction
+    short_ma_values = []
+    long_ma_values = []
+    rsi_values = []
+    macd_values = []
+    volatility_values = []
+    upper_band_values = []
+    lower_band_values = []
 
     for _ in range(test_env.max_steps):
         action, _ = loaded_model.predict(obs)
         obs, _, _, _ = test_env.step(action)
 
-        # Extract date and store results
         date_str = test_env.df.iloc[test_env.current_step, 0]
         date = datetime.strptime(date_str, "%Y-%m-%d")
-        portfolio_value = test_env.portfolio_value
 
         dates.append(date)
-        portfolio_values.append(portfolio_value)
+        portfolio_values.append(test_env.portfolio_value)
+        short_ma_values.append(test_env.record_features[0])
+        long_ma_values.append(test_env.record_features[1])
+        rsi_values.append(test_env.record_features[2])
+        macd_values.append(test_env.record_features[3])
+        volatility_values.append(test_env.record_features[4])
+        upper_band_values.append(test_env.record_features[5])
+        lower_band_values.append(test_env.record_features[6])
 
     # Plotting the results
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(15, 12))
+
+    plt.subplot(4, 2, 1)
+    plt.plot(dates, short_ma_values, label='Short MA')
+    plt.xlabel('Date')
+    plt.ylabel('Short MA')
+    plt.title('Short Moving Average Over Time')
+    plt.legend()
+
+    plt.subplot(4, 2, 2)
+    plt.plot(dates, long_ma_values, label='Long MA')
+    plt.xlabel('Date')
+    plt.ylabel('Long MA')
+    plt.title('Long Moving Average Over Time')
+    plt.legend()
+
+    plt.subplot(4, 2, 3)
+    plt.plot(dates, rsi_values, label='RSI')
+    plt.xlabel('Date')
+    plt.ylabel('RSI')
+    plt.title('Relative Strength Index Over Time')
+    plt.legend()
+
+    plt.subplot(4, 2, 4)
+    plt.plot(dates, macd_values, label='MACD')
+    plt.xlabel('Date')
+    plt.ylabel('MACD')
+    plt.title('MACD Over Time')
+    plt.legend()
+
+    plt.subplot(4, 2, 5)
+    plt.plot(dates, volatility_values, label='Volatility')
+    plt.xlabel('Date')
+    plt.ylabel('Volatility')
+    plt.title('Volatility Over Time')
+    plt.legend()
+
+    plt.subplot(4, 2, 6)
+    plt.plot(dates, upper_band_values, label='Upper Bollinger Band')
+    plt.xlabel('Date')
+    plt.ylabel('Upper Bollinger Band')
+    plt.title('Upper Bollinger Band Over Time')
+    plt.legend()
+
+    plt.subplot(4, 2, 7)
+    plt.plot(dates, lower_band_values, label='Lower Bollinger Band')
+    plt.xlabel('Date')
+    plt.ylabel('Lower Bollinger Band')
+    plt.title('Lower Bollinger Band Over Time')
+    plt.legend()
+
+    plt.subplot(4, 2, 8)
     plt.plot(dates, portfolio_values, label='Portfolio Value')
     plt.xlabel('Date')
     plt.ylabel('Portfolio Value')
     plt.title('Portfolio Value Over Time')
-    # Format y-axis as integers
-    ax = plt.gca()
-    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
-
     plt.legend()
+
+    plt.tight_layout()
     plt.show()
 
-
-    # Get the final portfolio value
     final_portfolio_value = env.portfolio_value
     print("Final Portfolio Value:", final_portfolio_value)
 
