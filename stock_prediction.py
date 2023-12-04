@@ -36,8 +36,6 @@ class StockTradingEnvironment(gym.Env):
         #keeps track of historical ticker prices
         self.historical_prices = []
 
-        #smooth rsi, keeps track of values
-        self.rsi_values=[]
         #for printing at the end
         self.record_features=[]
 
@@ -104,13 +102,6 @@ class StockTradingEnvironment(gym.Env):
 
         return macd_line.values, signal_line.values
 
-
-    #helper function to append rsi to historical rsi values
-    def _add_to_historical_rsi(self, rsi ):
-        if len(self.rsi_values)==14:
-            self.rsi_values.pop(0)
-        self.rsi_values.append(rsi)
-
     def _next_observation(self):
         # Extract date and prices for the current time step for each ticker
         date = datetime.strptime(self.df.iloc[self.current_step, 0], "%Y-%m-%d")
@@ -139,12 +130,8 @@ class StockTradingEnvironment(gym.Env):
 
             
             rs = avg_gain / (avg_loss + 1e-9)
-            rsi = 100 - (100 / (1 + rs))
-        self._add_to_historical_rsi(rsi)
+            rsi = 100 - (100 / (1 + rs))        
         
-        # #smooth rsi as its too noisy
-        # rsi = np.mean(self.rsi_values[-med_window:])
-        # Moving Average Convergence Divergence (MACD)
         macd_line, signal_line = self.calculate_macd(self.historical_prices)
 
         # Return a single value for observation
@@ -256,8 +243,8 @@ def predict_stocks():
     
     #Comment code to run trained model
     # Train the PPO model
-    # model = PPO("MlpPolicy", env, verbose=1)
-    # model.learn(total_timesteps=10000)
+    model = PPO("MlpPolicy", env, verbose=1)
+    model.learn(total_timesteps=10000)
 
     # # Save the trained model
     # model.save("ppo_stock_trading_model")
