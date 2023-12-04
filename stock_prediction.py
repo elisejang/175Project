@@ -8,6 +8,7 @@ from stable_baselines3 import PPO
 from datetime import datetime
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
+import math
 
 #from utils import build_data_set
 class StockTradingEnvironment(gym.Env):
@@ -22,7 +23,7 @@ class StockTradingEnvironment(gym.Env):
         self.action_space = spaces.MultiDiscrete([3] * len(self.tickers))
 
         # Calculate observation space size based on the number of features
-        num_features = 1 + len(self.tickers) + 5  # 1 for days_since_start, len(self.tickers) for stock prices, 4 for additional features
+        num_features = 1 + len(self.tickers) + 7  # 1 for days_since_start, len(self.tickers) for stock prices, 4 for additional features
         self.observation_space = spaces.Box(low=0, high=np.inf, shape=(num_features,), dtype=np.float32)
 
         # Initial state
@@ -33,7 +34,9 @@ class StockTradingEnvironment(gym.Env):
         self.portfolio_value = 0
         self.prev_portfolio_value = 0
         self.returns = []
-
+        
+        #keeps track of historical ticker prices
+        self.historical_prices = []
     def reset(self):
         self.current_step = 0
         self.portfolio_value = 0
@@ -44,7 +47,6 @@ class StockTradingEnvironment(gym.Env):
     def step(self, action):
         # Execute the action and move to the next time step
         self.current_step += 1
-        print("action:",action )
         # Calculate reward, done, and info based on your custom logic
         reward = self._calculate_reward(action)
         done = self.current_step == self.max_steps
@@ -55,6 +57,48 @@ class StockTradingEnvironment(gym.Env):
 
         return obs, reward, done, info
 
+    #helper function to append prices to historical prices
+    def _add_to_historical_prices(self, prices ):
+        if len(self.historical_prices)==20:
+            self.historical_prices.pop(0)
+        self.historical_prices.append(prices)
+    
+    #returns the mean of the window we want to look at for historical prices, prices is a 2d array
+    def _mean_of_historical_prices(self, prices , window=20):
+          mean = np.mean(prices[-window:], axis=0)
+          return mean
+
+    def _calculate_bollinger_bands(self, prices, window=20, num_std=2):
+        # Calculate the mean of historical prices
+        historical_prices_mean = self._mean_of_historical_prices(prices, window)
+        # Calculate the standard deviation using historical prices
+        historical_prices_std = np.std(historical_prices_mean)
+        
+        # Calculate upper and lower Bollinger Bands
+        upper_band = historical_prices_mean.mean() + num_std * historical_prices_std
+        lower_band = historical_prices_mean.mean() - num_std * historical_prices_std
+        # if math.isnan(upper_band)  or math.isnan(lower_band) ==None:
+        #     return 0, 0
+        return upper_band, lower_band
+
+
+    def calculate_macd(self, prices, short_window=10, long_window=20, signal_window=6):
+        # Convert prices to a DataFrame
+        df_prices = pd.DataFrame(prices)
+
+        # Calculate short-term EMA
+        short_ema = df_prices.ewm(span=short_window, adjust=False).mean().iloc[-1]
+
+        # Calculate long-term EMA
+        long_ema = df_prices.ewm(span=long_window, adjust=False).mean().iloc[-1]
+
+        # Calculate MACD line
+        macd_line = short_ema - long_ema
+
+        # Calculate Signal line (9-day EMA of MACD)
+        signal_line = macd_line.ewm(span=signal_window, adjust=False).mean()
+
+        return macd_line.values, signal_line.values
     
     def _next_observation(self):
         # Extract date and prices for the current time step for each ticker
@@ -62,17 +106,17 @@ class StockTradingEnvironment(gym.Env):
         print(date)
         days_since_start = (date - datetime.strptime(self.df.iloc[0, 0], "%Y-%m-%d")).days
         prices = self.df.iloc[self.current_step, 1:].values.astype(np.float32)
-
+        self._add_to_historical_prices(prices)
         # Feature engineering: Calculate moving averages, RSI, and MACD
         # Moving Averages
         short_window = 5
         long_window = 20
-        short_ma = self.df.iloc[max(0, self.current_step - short_window + 1):self.current_step + 1, 1:].mean().mean()
-        long_ma = self.df.iloc[max(0, self.current_step - long_window + 1):self.current_step + 1, 1:].mean().mean()
-
+        short_ma = self._mean_of_historical_prices(self.historical_prices, window=short_window).mean()
+        long_ma = self._mean_of_historical_prices(self.historical_prices, window=long_window).mean()
 
         # Relative Strength Index (RSI)
-        changes = np.diff(prices)
+        changes = np.diff(self.historical_prices)
+        print(changes)
         gains = np.where(changes > 0, changes, 0)
         losses = np.where(changes < 0, -changes, 0)
 
@@ -83,22 +127,36 @@ class StockTradingEnvironment(gym.Env):
         rsi = 100 - (100 / (1 + rs))
 
         # Moving Average Convergence Divergence (MACD)
-        short_ema = prices[-short_window:].mean()
-        long_ema = prices[-long_window:].mean()
-        macd = short_ema - long_ema
+        macd_line, signal_line = self.calculate_macd(self.historical_prices)
+
+        # Return a single value for observation
+        macd = macd_line[-1] - signal_line[-1]
+
         
 
 
         # Calculate historical volatility
-        returns = np.diff(prices) / prices[:-1]
-        volatility = np.std(returns) * np.sqrt(252)  # Assuming 252 trading days in a year
-        print("Short Ema:", short_ema)
-        print("Long Ema:", long_ema)
+        historical_prices_mean = self._mean_of_historical_prices(self.historical_prices)
+        returns = (prices - historical_prices_mean) / historical_prices_mean
+        volatility = np.std(returns) * np.sqrt(252)
+
+
+        
+        # Bollinger Bands
+        upper_band, lower_band = self._calculate_bollinger_bands(self.historical_prices, window=20, num_std=2)
+
+
+        print("Short ma:", short_ma)
+        print("Long ma:", long_ma)
         print("RSI:", rsi)
         print("MACD:", macd)
         print("volatility:", volatility)
+        print("upper band:", upper_band)
+        print("lower band:", lower_band)
         
-        obs = np.concatenate(([days_since_start], prices, [short_ma, long_ma, rsi, macd, volatility]))
+        obs = np.concatenate(([days_since_start], prices, [short_ma, long_ma, rsi, macd, volatility, upper_band, lower_band]))
+
+
         return obs
 
 
@@ -120,15 +178,21 @@ class StockTradingEnvironment(gym.Env):
          # Apply penalty for negative portfolio value
         penalty = 0
         if self.portfolio_value < 0:
-            penalty = -2 
-        # Calculate the daily returns
-        daily_return = (self.portfolio_value - self.prev_portfolio_value) / self.prev_portfolio_value if self.prev_portfolio_value != 0 else 0
+            penalty = -1
 
+         # Calculate the daily returns
+        daily_return = daily_return = (self.portfolio_value - self.prev_portfolio_value) / abs(self.prev_portfolio_value) if abs(self.prev_portfolio_value) > 0 else 0
         # Update the list of daily returns
         self.returns.append(daily_return)
 
-        # # Calculate the Sharpe ratio using the daily returns hihihi
-        # sharpe_ratio = self._calculate_sharpe_ratio(self.returns)
+        # Calculate the trend over a specified period (e.g., one month)
+        trend_window = 20  # Adjust this window size based on preference
+        recent_returns = self.returns[-trend_window:]
+
+        # Penalize if the overall trend is downwards
+        if np.mean(recent_returns) < 0:
+            penalty += -1  # Adjust the penalty based on preference
+
 
         # Update previous portfolio value for the next time step
         self.prev_portfolio_value = self.portfolio_value
