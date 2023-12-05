@@ -8,6 +8,7 @@ from stable_baselines3 import PPO
 from datetime import datetime
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
+import json
 
 #from utils import build_data_set
 class StockTradingEnvironment(gym.Env):
@@ -198,6 +199,23 @@ class StockTradingEnvironment(gym.Env):
         if np.mean(recent_returns) < 0:
             penalty += -1 
 
+        # Calculate the average sentiment on the day
+        date = datetime.strptime(self.df.iloc[self.current_step, 0], "%Y-%m-%d")
+        senti_list = []
+        with open('result_with_senti.json') as fp:
+            data = list(json.load(fp))
+            for line in data:
+                sub_date = datetime.utcfromtimestamp(line['created_utc']).strftime('%Y-%m-%d')
+                if sub_date == date:
+                    senti_list.append(line['sentiment']['compound'])
+        fp.close()
+        senti_avg = np.mean(senti_list)
+
+        # Penalize if the average is negative:
+
+        if senti_avg <= -0.5:
+            penalty += -1
+
 
         # Update previous portfolio value for the next time step
         self.prev_portfolio_value = self.portfolio_value
@@ -247,7 +265,7 @@ def predict_stocks():
     model.learn(total_timesteps=10000)
 
     # # Save the trained model
-    # model.save("ppo_stock_trading_model")
+    model.save("ppo_stock_trading_model")
     
     # Create and initialize the training environment
     test_env = StockTradingEnvironment(tf)
