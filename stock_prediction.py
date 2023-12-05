@@ -36,6 +36,7 @@ class StockTradingEnvironment(gym.Env):
         #keeps track of historical ticker prices
         self.historical_prices = []
 
+       
         #for printing at the end
         self.record_features=[]
 
@@ -102,6 +103,9 @@ class StockTradingEnvironment(gym.Env):
 
         return macd_line.values, signal_line.values
 
+
+    
+
     def _next_observation(self):
         # Extract date and prices for the current time step for each ticker
         date = datetime.strptime(self.df.iloc[self.current_step, 0], "%Y-%m-%d")
@@ -130,8 +134,11 @@ class StockTradingEnvironment(gym.Env):
 
             
             rs = avg_gain / (avg_loss + 1e-9)
-            rsi = 100 - (100 / (1 + rs))        
+            rsi = 100 - (100 / (1 + rs))
         
+        # #smooth rsi as its too noisy
+        # rsi = np.mean(self.rsi_values[-med_window:])
+        # Moving Average Convergence Divergence (MACD)
         macd_line, signal_line = self.calculate_macd(self.historical_prices)
 
         # Return a single value for observation
@@ -200,6 +207,8 @@ class StockTradingEnvironment(gym.Env):
 
 
         # Update previous portfolio value for the next time step
+        print("Previous Portfolio Value:", self.prev_portfolio_value)
+
         self.prev_portfolio_value = self.portfolio_value
 
         print("Portfolio Value:", self.portfolio_value)
@@ -242,12 +251,12 @@ def predict_stocks():
     env = StockTradingEnvironment(df)
     
     #Comment code to run trained model
-    # Train the PPO model
+    #Train the PPO model
     model = PPO("MlpPolicy", env, verbose=1)
     model.learn(total_timesteps=10000)
 
-    # # Save the trained model
-    # model.save("ppo_stock_trading_model")
+    # Save the trained model
+    model.save("ppo_stock_trading_model")
     
     # Create and initialize the training environment
     test_env = StockTradingEnvironment(tf)
