@@ -212,7 +212,7 @@ class StockTradingEnvironment(gym.Env):
         senti_avg = np.mean(senti_list)
 
         # Penalize if the average is negative:
-
+        
         if senti_avg <= -0.5:
             penalty += -1
 
