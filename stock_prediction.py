@@ -8,6 +8,7 @@ from stable_baselines3 import PPO
 from datetime import datetime
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
+import json
 
 #from utils import build_data_set
 class StockTradingEnvironment(gym.Env):
@@ -109,7 +110,7 @@ class StockTradingEnvironment(gym.Env):
     def _next_observation(self):
         # Extract date and prices for the current time step for each ticker
         date = datetime.strptime(self.df.iloc[self.current_step, 0], "%Y-%m-%d")
-        print(date)
+        #print(date)
         days_since_start = (date - datetime.strptime(self.df.iloc[0, 0], "%Y-%m-%d")).days
         prices = self.df.iloc[self.current_step, 1:].values.astype(np.float32)
         self._add_to_historical_prices(prices)
@@ -158,6 +159,7 @@ class StockTradingEnvironment(gym.Env):
         upper_band, lower_band = self._calculate_bollinger_bands(self.historical_prices, window=20, num_std=2)
 
         self.record_features=[short_ma, long_ma, rsi, macd, volatility,upper_band, lower_band ]
+        '''
         print("Short ma:", short_ma)
         print("Long ma:", long_ma)
         print("RSI:", rsi)
@@ -165,7 +167,7 @@ class StockTradingEnvironment(gym.Env):
         print("volatility:", volatility)
         print("upper band:", upper_band)
         print("lower band:", lower_band)
-        
+        '''
         obs = np.concatenate(([days_since_start], prices, [short_ma, long_ma, rsi, macd, volatility, upper_band, lower_band]))
 
 
@@ -205,14 +207,32 @@ class StockTradingEnvironment(gym.Env):
         if np.mean(recent_returns) < 0:
             penalty += -1 
 
+        
+        # Calculate the average sentiment on the day
+        date = datetime.strptime(self.df.iloc[self.current_step, 0], "%Y-%m-%d")
+        senti_list = []
+        with open('result_with_senti.json') as fp:
+            data = list(json.load(fp))
+            for line in data:
+                sub_date = datetime.utcfromtimestamp(line['created_utc']).strftime('%Y-%m-%d')
+                if sub_date == date:
+                    senti_list.append(line['sentiment']['compound'])
+        fp.close()
+        senti_avg = np.mean(senti_list)
+
+        # Penalize if the average is negative:
+        if senti_avg <= -0.5:
+            penalty += -1
+        
+
 
         # Update previous portfolio value for the next time step
-        print("Previous Portfolio Value:", self.prev_portfolio_value)
+        # print("Previous Portfolio Value:", self.prev_portfolio_value)
 
         self.prev_portfolio_value = self.portfolio_value
 
-        print("Portfolio Value:", self.portfolio_value)
-        print("Daily Return:", daily_return)
+        # print("Portfolio Value:", self.portfolio_value)
+        # print("Daily Return:", daily_return)
         # print("Sharpe Ratio:", sharpe_ratio)
 
         return daily_return + penalty
@@ -250,6 +270,7 @@ def predict_stocks():
     # Create and initialize the trading environment
     env = StockTradingEnvironment(df)
     
+    '''
     #Comment code to run trained model
     #Train the PPO model
     model = PPO("MlpPolicy", env, verbose=1)
@@ -257,10 +278,10 @@ def predict_stocks():
 
     # Save the trained model
     model.save("ppo_stock_trading_model")
-    
+    '''
     # Create and initialize the training environment
     test_env = StockTradingEnvironment(tf)
-
+    
     # Load the trained model
     loaded_model = PPO.load("ppo_stock_trading_model")
     obs = test_env.reset()
