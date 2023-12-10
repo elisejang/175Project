@@ -37,9 +37,25 @@ class StockTradingEnvironment(gym.Env):
         #keeps track of historical ticker prices
         self.historical_prices = []
 
-       
+        #language sentiment list
+        self.senti_list = []
+        with open('result_with_senti.json') as fp:
+            data = list(json.load(fp))
+            for line in data:       
+                    line['sentiment']=eval(line['sentiment'])             
+                    self.senti_list.append(line)
+        
+
+
+
         #for printing at the end
         self.record_features=[]
+
+
+
+
+
+
 
     def reset(self):
         self.current_step = 0
@@ -209,16 +225,18 @@ class StockTradingEnvironment(gym.Env):
 
         
         # Calculate the average sentiment on the day
-        date = datetime.strptime(self.df.iloc[self.current_step, 0], "%Y-%m-%d")
-        senti_list = []
-        with open('result_with_senti.json') as fp:
-            data = list(json.load(fp))
-            for line in data:
-                sub_date = datetime.utcfromtimestamp(line['created_utc']).strftime('%Y-%m-%d')
-                if sub_date == date:
-                    senti_list.append(line['sentiment']['compound'])
-        fp.close()
-        senti_avg = np.mean(senti_list)
+        calc_senti_list= []
+        current_date = datetime.strptime(self.df.iloc[self.current_step, 0], "%Y-%m-%d").date()
+
+        for line in self.senti_list:
+            sub_date = datetime.utcfromtimestamp(line['created_utc']).date().strftime('%Y-%m-%d')
+            sub_date = datetime.strptime(sub_date, "%Y-%m-%d").date()
+            if sub_date == current_date:
+                    calc_senti_list.append(line['sentiment']['compound'])
+            elif sub_date >current_date:
+                break
+        if len(calc_senti_list) >0:
+            senti_avg = np.mean(calc_senti_list)
 
         # Penalize if the average is negative:
         if senti_avg <= -0.5:
