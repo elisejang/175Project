@@ -1,4 +1,4 @@
-# MachineLearningStocks in python: a starter project
+# ML STOCKS in python
 
 ## Quickstart
 
@@ -8,7 +8,7 @@ Pull from this repo and save it to whatever file name
 
 Example:
 ```bash
-cd Users/User/Desktop/MachineLearningStocks
+cd Users/User/Desktop/MLStocks
 ```
 
 Open up VSC with python 3.6 and create a new virtual environment with the file as the project.
