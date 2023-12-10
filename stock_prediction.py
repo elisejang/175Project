@@ -282,13 +282,13 @@ def predict_stocks():
     env = StockTradingEnvironment(df)
     
     
-    #Comment code to run trained model
-    #Train the PPO model
-    model = PPO("MlpPolicy", env, verbose=1)
-    model.learn(total_timesteps=10000)
+    # #Comment code to run trained model
+    # #Train the PPO model
+    # model = PPO("MlpPolicy", env, verbose=1)
+    # model.learn(total_timesteps=10000)
 
-    # Save the trained model
-    model.save("ppo_stock_trading_model")
+    # # Save the trained model
+    # model.save("ppo_stock_trading_model")
     
     # Create and initialize the training environment
     test_env = StockTradingEnvironment(tf)

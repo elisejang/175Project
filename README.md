@@ -2,7 +2,14 @@
 
 ## Quickstart
 
-We also have a jupyterhub we are setting up.
+We also have a google colab we are setting up as we are unsure of how to get jupyterlab to work.
+https://colab.research.google.com/drive/1dHbfDJffQNpgV_MHM8eSgP6VDWPcCaB_?usp=sharing
+However, you must drag in:
+
+```bash
+ppo_stock_trading_model.zip
+stock_test.csv
+```
 
 Pull from this repo and save it to whatever file name
 
