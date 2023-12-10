@@ -235,6 +235,7 @@ class StockTradingEnvironment(gym.Env):
                     calc_senti_list.append(line['sentiment']['compound'])
             elif sub_date >current_date:
                 break
+        senti_avg=0
         if len(calc_senti_list) >0:
             senti_avg = np.mean(calc_senti_list)
 
