@@ -241,7 +241,7 @@ class StockTradingEnvironment(gym.Env):
 
         # Penalize if the average is negative:
         if senti_avg <= -0.5:
-            penalty += -1
+            penalty += -.5
         
 
 
@@ -281,7 +281,7 @@ def predict_stocks():
     # Create and initialize the trading environment
     env = StockTradingEnvironment(df)
     
-    '''
+    
     #Comment code to run trained model
     #Train the PPO model
     model = PPO("MlpPolicy", env, verbose=1)
@@ -289,7 +289,7 @@ def predict_stocks():
 
     # Save the trained model
     model.save("ppo_stock_trading_model")
-    '''
+    
     # Create and initialize the training environment
     test_env = StockTradingEnvironment(tf)
     
